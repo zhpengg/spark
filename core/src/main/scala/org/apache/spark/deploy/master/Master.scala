@@ -493,8 +493,7 @@ private[spark] class Master(
     if (spreadOutApps) {
       // Try to spread out each app among all the nodes, until it has all its cores
       for (app <- waitingApps if app.coresLeft > 0) {
-        val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE)
-          .filter(canUse(app, _)).sortBy(_.coresFree).reverse
+        val usableWorkers = shuffledWorkers.toArray.filter(canUse(app, _)).sortBy(_.coresFree).reverse
         val numUsable = usableWorkers.length
         val assigned = new Array[Int](numUsable) // Number of cores to give on each node
         var toAssign = math.min(app.coresLeft, usableWorkers.map(_.coresFree).sum)
@@ -517,7 +516,7 @@ private[spark] class Master(
       }
     } else {
       // Pack each app into as few nodes as possible until we've assigned all its cores
-      for (worker <- workers if worker.coresFree > 0 && worker.state == WorkerState.ALIVE) {
+      for (worker <- shuffledWorkers.filter(worker => worker.coresFree > 0)) {
         for (app <- waitingApps if app.coresLeft > 0) {
           if (canUse(app, worker)) {
             val coresToUse = math.min(worker.coresFree, app.coresLeft)
